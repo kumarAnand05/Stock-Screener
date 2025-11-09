@@ -24,3 +24,11 @@ def regression_slope(model):
         slope value
     """
     return round(model.coef_[0][0],2)
+
+def regression_intercept(model):
+    """
+    Get the intercept of the regression line from the model.
+    Returns:
+        intercept value
+    """
+    return round(model.intercept_[0],2)
