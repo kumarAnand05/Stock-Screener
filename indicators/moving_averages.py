@@ -38,17 +38,17 @@ def add_all_exponential_moving_averages(scrip_data, periods):
         ema_rows.append(f"EMA{period}")
         if f"EMA{period}" not in scrip_data.index:
             scrip_data = pd.concat([scrip_data, pd.Series(dtype='float64', name=f'EMA{period}', index=scrip_data.columns).to_frame().T])
-            scrip_data.loc[f"EMA{period}"].iloc[len(scrip_data.loc['Close'])-min(periods)] =   sma_values[periods.index(period)]
+            row_index = f"EMA{period}"
+            col_index = len(scrip_data.loc['Close']) - min(periods)
+            scrip_data.loc[row_index, col_index] = sma_values[periods.index(period)]
 
-    for i in range(len(scrip_data.loc['Close'])-min(periods)-1, -1, -1):
-        for period in periods:
-            if len(scrip_data.loc['Close'])-i >= period:
-                add_ema_value(scrip_data, period, i)
+    for period in periods:
+        add_ema_value(scrip_data, period, len(scrip_data.columns) - min(periods))
     
     return scrip_data
 
      
-def add_ema_value(scrip_data, period, index):
+def add_ema_value(scrip_data, period, start_index):
     """
     Calculate the Exponential Moving Average (EMA) for a given period at a specific index.
 
@@ -58,15 +58,21 @@ def add_ema_value(scrip_data, period, index):
     index (int): The index at which to calculate the EMA.
     
     Returns:
-    None: The function updates the scrip_data DataFrame in place.
+    pd.DataFrame: The DataFrame with the EMA value added at the specified index.
     """
+    ema_values = scrip_data.loc[f"EMA{period}"].to_numpy().copy()
+    close_prices = ema_values = scrip_data.loc['Close'].to_numpy().copy()
     smoothing_factor = 2 / (period + 1)
-    previous_ema = scrip_data.loc[f"EMA{period}"].iloc[index + 1]
-    close_price = scrip_data.loc['Close'].iloc[index]
+    
+    for i in range( start_index- 1, -1, -1):
+        if len(close_prices) - i >= period:
+            previous_ema = ema_values[i + 1]
+            close_price = close_prices[i]
+            ema_values[i] = round((close_price * smoothing_factor) + (previous_ema * (1 -smoothing_factor)), 2)
 
-    scrip_data.loc[f"EMA{period}"].iloc[index] = round((close_price * smoothing_factor) + (previous_ema * (1 - smoothing_factor)), 2 )
+    scrip_data.loc[f"EMA{period}"] = ema_values
 
-    return
+    return scrip_data
 
 
 def update_exponential_moving_averages(scrip_data, periods, missed_trading_sessions):
@@ -80,20 +86,19 @@ def update_exponential_moving_averages(scrip_data, periods, missed_trading_sessi
     missed_trading_sessions (int): Number of missed trading sessions to account for.
 
     Returns:
-    None: The function updates the scrip_data DataFrame in place.
+    pd.DataFrame: The updated DataFrame with recalculated EMAs.
     """
     periods = sorted(periods)
     unavailable_ema_periods = []
 
     sma_values = get_simple_moving_average(scrip_data, periods)
-
-    for i in range(missed_trading_sessions - 1, -1, -1):
-        for period in periods:
-            if f"EMA{period}" not in scrip_data.index:
-                unavailable_ema_periods.append(period)
-                continue
-            else:
-                add_ema_value(scrip_data, period, i)
     
-    add_all_exponential_moving_averages(scrip_data, unavailable_ema_periods)
-    return
+    for period in periods:
+        if f"EMA{period}" not in scrip_data.index:
+            unavailable_ema_periods.append(period)
+            continue
+        else:
+            scrip_data = add_ema_value(scrip_data, period, missed_trading_sessions)
+    if len(unavailable_ema_periods)>0:
+        scrip_data = add_all_exponential_moving_averages(scrip_data, unavailable_ema_periods)
+    return scrip_data
