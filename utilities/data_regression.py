@@ -16,6 +16,7 @@ def linear_regression(data):
     model.fit(x, y)
     return model
 
+
 def regression_slope(model):
     """
     Get the slope of the regression line from the model.
