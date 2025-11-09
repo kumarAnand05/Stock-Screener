@@ -4,6 +4,10 @@ import pandas as pd
 from utilities.commons import get_project_dir
 import datetime
 import time
+import indicators as ind
+
+
+ema_periods = [50, 200]
 
 def get_scrip_data(scrip_name):
     """
@@ -56,7 +60,9 @@ def get_scrip_data(scrip_name):
             missing_data = missing_data.iloc[0:, :missed_trading_sessions]
             scrip_data = pd.concat([missing_data, stored_df], axis=1)
 
-            return scrip_data
+            # Updating ema data
+            scrip_data = ind.moving_averages.update_exponential_moving_averages(scrip_data, ema_periods, missed_trading_sessions)
+
         else:
             return stored_df
 
@@ -69,7 +75,14 @@ def get_scrip_data(scrip_name):
             time.sleep(5)
             scrip_data = get_scrip_history(scrip_name, "max")
 
-        return scrip_data
+        # Adding EMA data
+        scrip_data = ind.moving_averages.add_all_exponential_moving_averages(scrip_data, ema_periods)
+
+    # Adding other indicators data
+    scrip_data = ind.rsi.get_rsi(scrip_data)
+    scrip_data = ind.bollinger_band.get_bollinger_bands(scrip_data)
+
+    return scrip_data
 
     
 def get_scrip_history(scrip_name, period):
