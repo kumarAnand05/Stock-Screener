@@ -1,7 +1,7 @@
 import yfinance as yf
 import os
 import pandas as pd
-from utilities.commons import get_formatted_date
+from utilities.commons import get_project_dir
 import datetime
 import time
 
@@ -14,13 +14,19 @@ def get_scrip_data(scrip_name):
     Args:
         scrip_name (str): The ticker symbol of the stock.
     """
-    scrip_data_file_path = f"ticker/scrip_data/{scrip_name}.csv"
+    data_dir = os.path.join(get_project_dir(), "ticker", "scrip_data")
+    os.makedirs(data_dir, exist_ok=True)
+    
+    scrip_data_file_path = os.path.join(data_dir, f"{scrip_name}.csv")
 
     if(os.path.exists(scrip_data_file_path)):
 
+        print(f"[INFO] Local data found for {scrip_name}. Checking for updates...")
+
         stored_df = pd.read_csv(scrip_data_file_path).set_index('Unnamed: 0')
-        latest_available_date = get_formatted_date(stored_df.iloc[0].index[0].split(' ')[0])
-    
+        latest_available_date = stored_df.iloc[0].index[0].split(' ')[0]
+        latest_available_date = datetime.datetime.strptime(latest_available_date, "%Y-%m-%d").date()
+
         # Finding the number of days of missing data
         current_time = datetime.datetime.now().time()
         market_opening_time = datetime.time(9, 20)
@@ -32,12 +38,12 @@ def get_scrip_data(scrip_name):
         missing_days = (latest_trading_session - latest_available_date).days        # Days of missing data
 
         if missing_days > 0:
-            missing_data = get_scrip_data(scrip_name, str(missing_days))
+            missing_data = get_scrip_history(scrip_name, str(missing_days))
             
             # Retry fetching data if empty
             if len(missing_data.columns) == 0:
                 time.sleep(5)
-                missing_data = get_scrip_data(scrip_name, str(missing_days))
+                missing_data = get_scrip_history(scrip_name, str(missing_days))
 
             # Removing existing data from collected missing data
             missed_trading_sessions = 0
@@ -56,15 +62,17 @@ def get_scrip_data(scrip_name):
 
     # Fetch all historical data if local file not found
     else:
-        scrip_data = get_scrip_data(scrip_name, "max")
+        print(f"[INFO] No local data found for {scrip_name}. Fetching full data...")
+
+        scrip_data = get_scrip_history(scrip_name, "max")
         if len(scrip_data.columns) == 0:
             time.sleep(5)
-            scrip_data = get_scrip_data(scrip_name, "max")
+            scrip_data = get_scrip_history(scrip_name, "max")
 
         return scrip_data
 
     
-def get_scrip_data(scrip_name, period):
+def get_scrip_history(scrip_name, period):
     """
     Fetches the latest data for the given scrip name and period from yfinance.
     Args:
