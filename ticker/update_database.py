@@ -1,4 +1,5 @@
 from utilities.commons import get_project_dir
+from utilities.commons import TRADING_SESSIONS_LIMIT
 import datetime as dt
 import os
 
@@ -28,7 +29,7 @@ def update_local_database(scrip_name, scrip_data):
         if current_time < market_close_time:
             scrip_data = scrip_data.drop(columns=scrip_data.columns[0], axis=1)
 
-    scrip_data = scrip_data.iloc[:, :2000].round(2)     # Trimming data to last 2000 trading sessions data
+    scrip_data = scrip_data.iloc[:, :TRADING_SESSIONS_LIMIT].round(2)     # Trimming data to last TRADING_SESSIONS_LIMIT number of trading sessions data
     scrip_data.to_csv(scrip_data_file_path)
 
     return
