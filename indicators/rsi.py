@@ -16,12 +16,15 @@ def get_rsi(scrip_data):
         scrip_data = pd.concat([scrip_data, rsi.to_frame().T])
 
     # Calculating RSI using pandas_ta
-    rsi14 = ta.rsi(scrip_data.loc['Close'][TRADING_SESSIONS_LIMIT+14::-1], length=14)[::-1]
+    rsi14 = ta.rsi(scrip_data.loc['Close'][TRADING_SESSIONS_LIMIT+14::-1], length=14)[::-1].to_numpy()
+    
+    rsi_values = scrip_data.loc['RSI'].to_numpy().copy()
 
     for r in range(len(rsi14)):
-        cell_data = scrip_data.loc['RSI'].iloc[0]
+        cell_data = rsi_values[r]
         if np.isnan(cell_data):
-            cell_data = rsi14.iloc[r]
+            rsi_values[r] = rsi14[r]
         else:
             break
+    scrip_data.loc['RSI'] = rsi_values
     return scrip_data
