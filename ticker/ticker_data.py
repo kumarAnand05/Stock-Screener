@@ -1,4 +1,67 @@
 import yfinance as yf
+import os
+import pandas as pd
+from utilities.commons import get_formatted_date
+import datetime
+import time
+
+def get_scrip_data(scrip_name):
+    """
+    Returns the time series data for the given scrip name.
+        - Checks local dir and updates it with latest data.
+        - If local data is not present then fetches the entire data.
+        - If data is already upto date, then loads from local dir.
+    Args:
+        scrip_name (str): The ticker symbol of the stock.
+    """
+    scrip_data_file_path = f"ticker/scrip_data/{scrip_name}.csv"
+
+    if(os.path.exists(scrip_data_file_path)):
+
+        stored_df = pd.read_csv(scrip_data_file_path).set_index('Unnamed: 0')
+        latest_available_date = get_formatted_date(stored_df.iloc[0].index[0].split(' ')[0])
+    
+        # Finding the number of days of missing data
+        current_time = datetime.datetime.now().time()
+        market_opening_time = datetime.time(9, 20)
+        if current_time > market_opening_time:
+            latest_trading_session = datetime.date.today()
+        else:
+            latest_trading_session = datetime.date.today() - datetime.timedelta(days=1)
+
+        missing_days = (latest_trading_session - latest_available_date).days        # Days of missing data
+
+        if missing_days > 0:
+            missing_data = get_scrip_data(scrip_name, str(missing_days))
+            
+            # Retry fetching data if empty
+            if len(missing_data.columns) == 0:
+                time.sleep(5)
+                missing_data = get_scrip_data(scrip_name, str(missing_days))
+
+            # Removing existing data from collected missing data
+            missed_trading_sessions = 0
+            for days in range(missing_days):
+                current_missing_days = (missing_data.iloc[0].index[days].date() - latest_available_date).days
+                if current_missing_days > 0:
+                    missed_trading_sessions += 1
+                else:
+                    break
+            missing_data = missing_data.iloc[0:, :missed_trading_sessions]
+            scrip_data = pd.concat([missing_data, stored_df], axis=1)
+
+            return scrip_data
+        else:
+            return stored_df
+
+    # Fetch all historical data if local file not found
+    else:
+        scrip_data = get_scrip_data(scrip_name, "max")
+        if len(scrip_data.columns) == 0:
+            time.sleep(5)
+            scrip_data = get_scrip_data(scrip_name, "max")
+
+        return scrip_data
 
     
 def get_scrip_data(scrip_name, period):
